@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Keycloak Authentication</title>
+</head>
+<body>
+    <h2>Register</h2>
+    <form id="registerForm">
+        Username: <input type="text" name="username" required><br>
+        Email: <input type="email" name="email" required><br>
+        Password: <input type="password" name="password" required><br>
+        External ID: <input type="text" name="externalId" required><br>
+        <button type="submit">Register</button>
+    </form>
+
+    <br>
+    <script>
+        // 🔹 Register User
+        document.getElementById("registerForm").addEventListener("submit", async (e) => {
+            e.preventDefault();
+            const formData = new FormData(e.target);
+            const data = Object.fromEntries(formData);
+
+            try {
+                const response = await fetch("/register", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(data),
+                });
+
+                const result = await response.json();
+                if (result.success) {
+                    alert("✅ Registration Successful!");
+                } else {
+                    alert("❌ Registration Failed: " + JSON.stringify(result.error)); 
+                }
+            } catch (error) {
+                alert("⚠️ Network Error: " + error.message);
+            }
+        });
+    </script>
+</body>
+</html>

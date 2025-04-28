@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>App 2</title>
+</head>
+<body>
+  <h2>App 2</h2>
+  <p>Received Message: <span id="receivedMessage"></span></p>
+  <button id="backButton" style="display: none;" onclick="goBack()">Back to App 1</button>
+  </br>
+  <h2>Register</h2>
+    <form id="registerForm">
+        Username: <input type="text" name="username" required><br>
+        First Name:<input type="text" name="first_name" required><br>
+        Last Name:<input type="text" name="last_name" required><br>
+        Phone Number:<input type="text" name="phone" required><br>
+        Email: <input type="email" name="email" required><br>
+        Password: <input type="password" name="password" required><br>
+        <button type="submit">Register</button>
+    </form>
+    <br>
+  <h3>Logs:</h3>
+  <pre id="log"></pre>
+
+  <script>
+    // Function to log messages on the page and console
+    function logMessage(msg) {
+      console.log(msg);
+      document.getElementById("log").textContent += msg + "\n";
+    }
+
+    // Extract parameters from URL (message and token)
+    function getParamsFromURL() {
+      const params = new URLSearchParams(window.location.search);
+      return {
+        message: params.get("msg") || "No message received.",
+        token: params.get("token") || null
+      };
+    }
+
+    // Verify JWT via the backend
+    async function verifyWithKeycloak(token) {
+      logMessage("🔄 Verifying JWT with Keycloak...");
+      try {
+        const response = await fetch("/verify-token", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ token })
+        });
+        const result = await response.json();
+        if (result.valid) {
+          logMessage("✅ JWT Verified Successfully!");
+          return true;
+        } else {
+          logMessage("❌ JWT Verification Failed!");
+          return false;
+        }
+      } catch (error) {
+        logMessage("⚠️ Error Verifying JWT: " + error.message);
+        return false;
+      }
+    }
+
+    // New function to verify token with App2 backend
+    // async function verifyToken() {
+    //     const token = localStorage.getItem("jwt_token");  // Get JWT token from storage
+    //     if (!token) {
+    //         console.error("JWT token not found");
+    //         return;
+    //     }
+
+    //     try {
+    //         const response = await fetch("http://127.0.0.1:5017/update_details", {
+    //             method: "POST",
+    //             headers: { "Content-Type": "application/json" },
+    //             body: JSON.stringify({ token: token })
+    //         });
+
+    //         const data = await response.json();
+    //         console.log("Response from backend:", data);  // ✅ Print backend response
+    //     } catch (error) {
+    //         console.error("Error sending request:", error);
+    //     }
+    //     made change here, commented this part and called api from backend to update_details endpoint
+    // }
+
+    // On page load in App2, verify token and display message
+    async function checkAuthOnLoad() {
+      console.log("checkAuthOnLoad function is being executed!");
+      const { message, token } = getParamsFromURL();
+      document.getElementById("receivedMessage").innerText = message;
+      logMessage("📩 Received Message: " + message);
+
+      if (!token) {
+        logMessage("❌ No JWT Token found! Redirecting to login...");
+        alert("No valid authentication token found. Please log in again.");
+        window.location.href = "http://127.0.0.1:5000";
+        return;
+      }
+
+      logMessage("🔑 JWT Token: " + token);
+
+      const isValid = await verifyWithKeycloak(token);
+      if (!isValid) {
+        alert("❌ JWT verification failed! Redirecting to login...");
+        // window.location.href = "https://logger.dienst.uni-landau.de:5015/index.html";
+        window.location.href = "http://127.0.0.1:5000";
+        return;
+      }
+
+      // Store token for persistence
+      localStorage.setItem("jwt_token", token);
+
+      // await verifyToken();
+
+      // Show "Back" button after verification
+      document.getElementById("backButton").style.display = "block";
+      console.log("Back button displayed");
+    }
+
+    // When clicking "Back to App 1", verify token again before redirecting
+    async function goBack() {
+      const token = localStorage.getItem("jwt_token");
+      if (!token) {
+        alert("No token found. Please log in.");
+        // window.location.href = "https://logger.dienst.uni-landau.de:5015/index.html";
+        window.location.href = "http://127.0.0.1:5000";
+        return;
+      }
+      const isValid = await verifyWithKeycloak(token);
+      if (isValid) {
+        // window.location.href = `https://logger.dienst.uni-landau.de:5015/app1.html?token=${encodeURIComponent(token)}`;
+        window.location.href = `http://127.0.0.1:5000/app1?token=${encodeURIComponent(token)}`;
+      } else {
+        alert("Token invalid. Please log in again.");
+        // window.location.href = "https://logger.dienst.uni-landau.de:5015/index.html";
+        window.location.href = "http://127.0.0.1:5000";
+      }
+    }
+
+    checkAuthOnLoad();
+
+    // 🔹 Register User
+    document.getElementById("registerForm").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const formData = new FormData(e.target);
+        const data = Object.fromEntries(formData);
+
+        // 🔥 Attach jwt_token from localStorage
+        const jwtToken = localStorage.getItem("jwt_token");
+        if (!jwtToken) {
+          alert("⚠️ No JWT token found! Please login first.");
+          return;
+        }
+        try {
+            const response = await fetch("/register", {
+                method: "POST",
+                headers: { "Content-Type": "application/json", 
+                "Authorization": `Bearer ${jwtToken}` // 🔥 Attach JWT token properly here
+                },
+                body: JSON.stringify(data),
+            });
+
+            const result = await response.json();
+            if (result.success) {
+                alert("✅ Registration Successful!");
+            } else {
+                alert("❌ Registration Failed: " + JSON.stringify(result.error)); 
+            }
+        } catch (error) {
+            alert("⚠️ Network Error: " + error.message);
+        }
+    });
+
+  </script>
+</body>
+</html>
